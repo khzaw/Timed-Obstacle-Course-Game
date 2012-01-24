@@ -5,6 +5,7 @@ from panda3d.core import Filename, AmbientLight, DirectionalLight
 from panda3d.core import PandaNode, NodePath, Camera
 from panda3d.core import Vec3, Vec4, BitMask32
 from direct.actor.Actor import Actor
+from direct.task.Task import Task
 from direct.showbase.DirectObject import DirectObject
 import sys
 
@@ -17,7 +18,8 @@ class Game(DirectObject):
                 "forward"  : 0,
                 "backward" : 0,
                 "cam-left" : 0,
-                "cam-right": 0 }
+                "cam-right": 0,
+                }
         base.win.setClearColor(Vec4(0, 0, 0, 1))
 
 
@@ -40,10 +42,17 @@ class Game(DirectObject):
                  "board" : "../assets/models/sonic/sonic-board" ,
                  "fwboard" : "../assets/models/sonic/sonic-fallingwboard",
                  "fwoboard" : "../assets/models/sonic/sonic-fallingwoboard" })
+
+        #self.sonic = Actor("../assets/models/ralph",
+                #{"board" : "../assets/models/ralph-run",
+                 #"fwboard": "../assets/models/ralph-walk"})
         self.sonic.reparentTo(render)
         self.sonic.setScale(0.05)
+        #self.sonic.setScale(0.2)
         self.sonic.setPos(sonicStartPos)
 
+        # create a floater object to be used as a temporary
+        # variable in a variety of calculations
         self.floater = NodePath(PandaNode("floater"))
         self.floater.reparentTo(render)
 
@@ -64,8 +73,11 @@ class Game(DirectObject):
 
         taskMgr.add(self.move, "moveTask")
 
+        # variable to keep track of moving state
         self.isMoving = False
 
+        # setup the camera
+        base.disableMouse()
         base.camera.setPos(self.sonic.getX(), self.sonic.getY() + 10, 2)
 
         self.cTrav = CollisionTraverser()
@@ -96,8 +108,8 @@ class Game(DirectObject):
         self.sonicGroundColNp.show()
         self.camGroundColNp.show()
 
+        # visual representation of the collisions occuring
         self.cTrav.showCollisions(render)
-
 
         # create some lighting
         ambientLight = AmbientLight("ambientLight")
@@ -117,7 +129,6 @@ class Game(DirectObject):
         base.camera.lookAt(self.sonic)
         if(self.keyMap["cam-left"] != 0):
             base.camera.setX(base.camera, -30 * globalClock.getDt())
-
         if(self.keyMap["cam-right"] != 0):
             base.camera.setX(base.camera, +30 * globalClock.getDt())
 
@@ -152,10 +163,10 @@ class Game(DirectObject):
         camdist = camvec.length()
         camvec.normalize()
         if(camdist > 10.0):
-            base.camera.setPos(base.camera.getPos() + camvec * (camdist-10))
+            base.camera.setPos(base.camera.getPos() + (camvec * (camdist-10)))
             camdist = 10.0
         if(camdist < 5.0):
-            base.camera.setPos(base.camera.getPos() - camvec * (5-camdist))
+            base.camera.setPos(base.camera.getPos() - (camvec * (5-camdist)))
             camdist = 5.0
 
         # now check for collisions
@@ -192,11 +203,22 @@ class Game(DirectObject):
             base.camera.setZ(self.sonic.getZ() + 2.0)
 
 
+        # The camera should look in sonic's direction,
+        # but it should also try to stay horizontal, so look at
+        # a floater which hovers above sonic's head
+
         self.floater.setPos(self.sonic.getPos())
         self.floater.setZ(self.sonic.getZ() + 2.0)
         base.camera.lookAt(self.floater)
 
-        return task.cont
+        # Update the camera based on mouse movement
+        md = base.win.getPointer(0)
+        x = md.getX()
+        y = md.getY()
+        if base.win.movePointer(0, base.win.getXSize()/2, base.win.getYSize()/2):
+            base.camera.setX(base.camera, (x - base.win.getXSize()/2) * globalClock.getDt())
+
+        return Task.cont
 
 
 
