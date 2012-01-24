@@ -1,17 +1,21 @@
 import direct.directbase.DirectStart
+from panda3d.ai import *
 from panda3d.core import CollisionTraverser, CollisionNode
 from panda3d.core import CollisionHandlerQueue, CollisionRay
-from panda3d.core import Filename, AmbientLight, DirectionalLight
-from panda3d.core import PandaNode, NodePath, Camera
+from panda3d.core import AmbientLight, DirectionalLight
+from panda3d.core import PandaNode, NodePath
 from panda3d.core import Vec3, Vec4, BitMask32
 from direct.actor.Actor import Actor
-from direct.task.Task import Task
 from direct.showbase.DirectObject import DirectObject
 import sys
 
+SPEED = 4
 class Game(DirectObject):
 
     def __init__(self):
+
+        self.setAI()
+
         self.keyMap = {
                 "left"     : 0,
                 "right"    : 0,
@@ -27,12 +31,6 @@ class Game(DirectObject):
         self.env = loader.loadModel("../assets/models/world")
         self.env.reparentTo(render)
         self.env.setPos(0, 0, 0)
-
-        # t-rex
-        self.trex = Actor("../assets/models/trex/trex",
-                {"run" : "../assets/models/trex/trex-run",
-                 "eat" : "../assets/models/trex/trex-eat"})
-
 
         # main character (sonic)
         sonicStartPos = self.env.find("**/start_point").getPos()
@@ -50,6 +48,8 @@ class Game(DirectObject):
         self.sonic.setScale(0.05)
         #self.sonic.setScale(0.2)
         self.sonic.setPos(sonicStartPos)
+
+
 
         # create a floater object to be used as a temporary
         # variable in a variety of calculations
@@ -111,6 +111,8 @@ class Game(DirectObject):
         # visual representation of the collisions occuring
         self.cTrav.showCollisions(render)
 
+        self.createTrexAI()
+
         # create some lighting
         ambientLight = AmbientLight("ambientLight")
         ambientLight.setColor(Vec4(0.3, 0.3, 0.3, 1))
@@ -120,6 +122,74 @@ class Game(DirectObject):
         directionalLight.setSpecularColor(Vec4(1, 1, 1, 1))
         render.setLight(render.attachNewNode(ambientLight))
         render.setLight(render.attachNewNode(directionalLight))
+
+    def createTrexAI(self):
+        startPos = self.env.find("**/start_point").getPos()
+
+        # Load the trex actor and loop its animation
+        self.trex = Actor("../assets/models/trex/trex",
+                {"run" : "../assets/models/trex/trex-run",
+                 "eat" : "../assets/models/trex/trex-eat"})
+        self.trex.reparentTo(render)
+        self.trex.setScale(0.25)
+        self.trex.setPlayRate(3, 'run')
+        self.trex.loop('run')
+        self.trex.setPos(startPos[0], startPos[-1] - 20, startPos[2])
+
+        self.trexGroundRay = CollisionRay()
+        self.trexGroundRay.setOrigin(0,0,1000)
+        self.trexGroundRay.setDirection(0,0,-1)
+        self.trexGroundCol = CollisionNode('pandaRay')
+        self.trexGroundCol.addSolid(self.trexGroundRay)
+        self.trexGroundCol.setFromCollideMask(BitMask32.bit(0))
+        self.trexGroundCol.setIntoCollideMask(BitMask32.allOff())
+        self.trexGroundColNp = self.trex.attachNewNode(self.trexGroundCol)
+        self.trexGroundHandler = CollisionHandlerQueue()
+        self.cTrav.addCollider(self.trexGroundColNp, self.trexGroundHandler)
+
+        # AI code for trex
+        self.trexAI = AICharacter("trex", self.trex, 100, 0.05, 5)
+        self.AIworld.addAiChar(self.trexAI)
+        self.trexAIbehaviors = self.trexAI.getAiBehaviors()
+
+        # pursue behavior
+        self.trexAIbehaviors.pursue(self.sonic)
+
+
+        taskMgr.add(self.moveTrexAI, "moveTrexAI")
+
+    # to create the AI world
+    def setAI(self):
+        self.AIworld = AIWorld(render)
+        taskMgr.add(self.AIUpdate, "AIUpdate")
+
+    def AIUpdate(self, task):
+        self.AIworld.update()
+        return task.cont
+
+    def moveTrexAI(self, task):
+
+        startpos = self.trex.getPos()
+
+        entries = []
+        for i in range(self.trexGroundHandler.getNumEntries()):
+            entry = self.trexGroundHandler.getEntry(i)
+            entries.append(entry)
+        entries.sort(lambda x,y: cmp(y.getSurfacePoint(render).getZ(),
+                                     x.getSurfacePoint(render).getZ()))
+
+        if(len(entries) > 0) and (entries[0].getIntoNode().getName() =="terrain"):
+            trexZ = entries[0].getSurfacePoint(render).getZ()
+            trexY = entries[0].getSurfacePoint(render).getY()
+            trexX = entries[0].getSurfacePoint(render).getX()
+
+            self.trex.setZ(entries[0].getSurfacePoint(render).getZ())
+        else:
+            self.trex.setPos(startpos)
+
+        return task.cont
+
+
 
     def setKey(self, action, value):
         self.keyMap[action] = value
@@ -139,9 +209,9 @@ class Game(DirectObject):
         if(self.keyMap["right"] != 0):
             self.sonic.setH(self.sonic.getH() - 300 * globalClock.getDt())
         if(self.keyMap["forward"] != 0):
-            self.sonic.setY(self.sonic, -100 * globalClock.getDt())
+            self.sonic.setY(self.sonic, -100 * globalClock.getDt() * SPEED)
         if(self.keyMap["backward"] != 0):
-            self.sonic.setY(self.sonic, 100 * globalClock.getDt())
+            self.sonic.setY(self.sonic, 100 * globalClock.getDt() * SPEED)
 
         # If sonic is moving, loop the run animation
         # If he is standing still, stop the animation
@@ -216,9 +286,9 @@ class Game(DirectObject):
         x = md.getX()
         y = md.getY()
         if base.win.movePointer(0, base.win.getXSize()/2, base.win.getYSize()/2):
-            base.camera.setX(base.camera, (x - base.win.getXSize()/2) * globalClock.getDt())
+            base.camera.setX(base.camera, (x - base.win.getXSize()/2) * globalClock.getDt() * 0.1)
 
-        return Task.cont
+        return task.cont
 
 
 
