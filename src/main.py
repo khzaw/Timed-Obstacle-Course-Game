@@ -8,8 +8,10 @@ from panda3d.core import Vec3, Vec4, BitMask32
 from direct.actor.Actor import Actor
 from direct.showbase.DirectObject import DirectObject
 import sys
+import time
 
-SPEED = 4
+SPEED = 8               # speed of the main character (sonic)
+
 class Game(DirectObject):
 
     def __init__(self):
@@ -32,24 +34,25 @@ class Game(DirectObject):
         self.env.reparentTo(render)
         self.env.setPos(0, 0, 0)
 
+
+        # the flag ( destination )
+        self.flag = loader.loadModel("../assets/models/flag/flag")
+        self.flag.reparentTo(render)
+        self.flag.setScale(0.1)
+        self.flag.setPos(0, 0, 5)
+        self.DESTINATION = self.flag.getPos()
+
         # main character (sonic)
-        sonicStartPos = self.env.find("**/start_point").getPos()
+        self.START = self.env.find("**/start_point").getPos()
         self.sonic = Actor("../assets/models/sonic/sonic",
                 {"run" : "../assets/models/sonic/sonic-run",
                  "win" : "../assets/models/sonic/sonic-win",
                  "board" : "../assets/models/sonic/sonic-board" ,
                  "fwboard" : "../assets/models/sonic/sonic-fallingwboard",
                  "fwoboard" : "../assets/models/sonic/sonic-fallingwoboard" })
-
-        #self.sonic = Actor("../assets/models/ralph",
-                #{"board" : "../assets/models/ralph-run",
-                 #"fwboard": "../assets/models/ralph-walk"})
         self.sonic.reparentTo(render)
         self.sonic.setScale(0.05)
-        #self.sonic.setScale(0.2)
-        self.sonic.setPos(sonicStartPos)
-
-
+        self.sonic.setPos(self.START)
 
         # create a floater object to be used as a temporary
         # variable in a variety of calculations
@@ -122,6 +125,9 @@ class Game(DirectObject):
         directionalLight.setSpecularColor(Vec4(1, 1, 1, 1))
         render.setLight(render.attachNewNode(ambientLight))
         render.setLight(render.attachNewNode(directionalLight))
+
+        # check win
+        taskMgr.add(self.checkWin, "checkWin")
 
     def createTrexAI(self):
         startPos = self.env.find("**/start_point").getPos()
@@ -288,6 +294,14 @@ class Game(DirectObject):
         if base.win.movePointer(0, base.win.getXSize()/2, base.win.getYSize()/2):
             base.camera.setX(base.camera, (x - base.win.getXSize()/2) * globalClock.getDt() * 0.1)
 
+        return task.cont
+
+    def checkWin(self, task):
+        xdiff = abs(self.flag.getX() - self.sonic.getX())
+        ydiff = abs(self.flag.getY() - self.sonic.getY())
+        if xdiff < 5 and ydiff < 5:
+            print "Win!"
+            self.sonic.setPos(self.START)
         return task.cont
 
 
