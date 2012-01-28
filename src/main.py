@@ -3,14 +3,33 @@ from panda3d.ai import *
 from panda3d.core import CollisionTraverser, CollisionNode
 from panda3d.core import CollisionHandlerQueue, CollisionRay
 from panda3d.core import AmbientLight, DirectionalLight
-from panda3d.core import PandaNode, NodePath
+from panda3d.core import PandaNode, NodePath, TextNode
 from panda3d.core import Vec3, Vec4, BitMask32
+from direct.gui.OnscreenText import OnscreenText
 from direct.actor.Actor import Actor
 from direct.showbase.DirectObject import DirectObject
+from direct.gui.DirectGui import DirectButton
 import sys
-import time
 
+# global variables
 SPEED = 8               # speed of the main character (sonic)
+HEALTH = 100
+TIME = 5
+TOTAL_TIME = 5
+#TIME = 120
+#TOTAL_TIME = 120
+
+# function to put instructions on the screen
+def addInstruction(pos, msg):
+    return OnscreenText(text=msg, style=1, fg=(1, 1, 1, 1),
+                        pos=pos, align=TextNode.ALeft, scale=0.05)
+
+def addTitle(text):
+    return OnscreenText(text=text, style=1, fg=(1, 1, 1, 1),
+                        pos=(1.3, -0.95), align=TextNode.ARight, scale=0.07)
+
+#def showMainMenu():
+
 
 class Game(DirectObject):
 
@@ -34,6 +53,9 @@ class Game(DirectObject):
         self.env.reparentTo(render)
         self.env.setPos(0, 0, 0)
 
+        # HUD
+        self.time_text = addInstruction((-1.2, 0.9), "Time Remaining :: %s" % TIME)
+        self.health_text = addInstruction((0.9, 0.9), "Health :: %s" % HEALTH)
 
         # the flag ( destination )
         self.flag = loader.loadModel("../assets/models/flag/flag")
@@ -128,6 +150,12 @@ class Game(DirectObject):
 
         # check win
         taskMgr.add(self.checkWin, "checkWin")
+
+        # check time
+        taskMgr.add(self.checkTime, "checkTime")
+
+        # check health
+        taskMgr.add(self.checkHealth, "checkHealth")
 
     def createTrexAI(self):
         startPos = self.env.find("**/start_point").getPos()
@@ -294,15 +322,70 @@ class Game(DirectObject):
         if base.win.movePointer(0, base.win.getXSize()/2, base.win.getYSize()/2):
             base.camera.setX(base.camera, (x - base.win.getXSize()/2) * globalClock.getDt() * 0.1)
 
+        # timer countdown
+        global TIME
+        TIME = TOTAL_TIME - int(task.time)
+
+        self.time_text.setText("Time Remaining :: %i" % TIME)
+
         return task.cont
 
     def checkWin(self, task):
-        xdiff = abs(self.flag.getX() - self.sonic.getX())
-        ydiff = abs(self.flag.getY() - self.sonic.getY())
-        if xdiff < 5 and ydiff < 5:
-            print "Win!"
-            self.sonic.setPos(self.START)
+        delta = self.sonic.getDistance(self.flag)
+        if(delta < 30):
+            self.winText = OnscreenText(text="You Win!", style=1, fg=(1, 1, 1, 1),
+                        pos=(0,0), align=TextNode.ACenter, scale=0.4)
+            self.resetBtn = DirectButton(text=("Restart", "Restart", "Restart"), scale=0.1,
+                    command=self.resetGame, pos=(0, 0, -0.7))
+
+            taskMgr.remove("moveTask")
+            return task.done
         return task.cont
+
+    def checkTime(self, task):
+        time_left = TIME
+        if(time_left == 0):
+            taskMgr.remove("moveTask")
+            self.gameOverText = OnscreenText(text="Game Over!", style=1, fg=(1, 1, 1, 1),
+                        pos=(0, 0), align=TextNode.ACenter, scale=0.4)
+            self.resetBtn = DirectButton(text=("Restart", "Restart", "Restart"), scale=0.1,
+                        command=self.resetGame, pos=(0, 0, -0.7))
+            return task.done
+        return task.cont
+
+    def checkHealth(self, task):
+        health_left = HEALTH
+        if(health_left == 0):
+            taskMgr.remove("moveTask")
+            self.gameOverText = OnscreenText(text="Game Over!", style=1, fg=(1, 1, 1, 1),
+                        pos=(0, 0), align=TextNode.ACenter, scale=0.4)
+            self.resetBtn = DirectButton(text=("Restart", "Restart", "Restart"), scale=0.1,
+                        command=self.resetGame, pos=(0, 0, -0.7))
+            return task.done
+        return task.cont
+
+    def resetGame(self):
+        # re-add the move task
+        taskMgr.add(self.move, "moveTask")
+
+        # remove GUI elements
+        if hasattr(game, 'gameOverText'):
+            self.gameOverText.destroy()
+        if hasattr(game, 'resetBtn'):
+            self.resetBtn.destroy()
+        if hasattr(game, 'winText'):
+            self.winText.destroy()
+
+        # reset position
+        self.sonic.setPos(self.START)
+
+        # reset time count
+        global TIME, TOTAL_TIME
+        TIME = 120
+        TOTAL_TIME = 120
+
+
+
 
 
 
