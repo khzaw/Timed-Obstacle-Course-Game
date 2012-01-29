@@ -9,15 +9,16 @@ from direct.gui.OnscreenText import OnscreenText
 from direct.actor.Actor import Actor
 from direct.showbase.DirectObject import DirectObject
 from direct.gui.DirectGui import DirectButton
+import random
 import sys
 
 # global variables
 SPEED = 8               # speed of the main character (sonic)
 HEALTH = 100
-TIME = 5
-TOTAL_TIME = 5
-#TIME = 120
-#TOTAL_TIME = 120
+#TIME = 5
+#TOTAL_TIME = 5
+TIME = 120
+TOTAL_TIME = 120
 
 # function to put instructions on the screen
 def addInstruction(pos, msg):
@@ -62,9 +63,6 @@ class Game(DirectObject):
         self.accept("arrow_right", self.setKey, ["cam-right", 1])
         self.accept("arrow_right-up", self.setKey, ["cam-right", 0])
 
-
-
-
         # create some lighting
         ambientLight = AmbientLight("ambientLight")
         ambientLight.setColor(Vec4(0.3, 0.3, 0.3, 1))
@@ -74,6 +72,77 @@ class Game(DirectObject):
         directionalLight.setSpecularColor(Vec4(1, 1, 1, 1))
         render.setLight(render.attachNewNode(ambientLight))
         render.setLight(render.attachNewNode(directionalLight))
+
+    def createMilesAI(self):
+        startPos = self.env.find("**/start_point").getPos()
+
+        # load miles actor
+        self.miles1 = Actor("../assets/models/miles/tails",
+                {"board"   : "../assets/models/miles/tails-board",
+                 "win"     : "../assets/models/miles/tails-win",
+                 "fwboard" : "../assets/models/miles/tails-fallingwboard",
+                 "fwoboard": "../assets/models/miles/tails-fallingwoboard"})
+
+        self.miles2 = Actor("../assets/models/miles/tails",
+                {"board"   : "../assets/models/miles/tails-board",
+                 "win"     : "../assets/models/miles/tails-win",
+                 "fwboard" : "../assets/models/miles/tails-fallingwboard",
+                 "fwoboard": "../assets/models/miles/tails-fallingwoboard"})
+
+        self.miles = [self.miles1, self.miles2]
+
+        self.miles1.reparentTo(render)
+        self.miles1.setScale(0.05)
+        self.miles1.setPlayRate(3, 'run')
+        self.miles1.loop('board')
+        self.miles1.setPos(startPos[0] + 5, startPos[1] - 20, startPos[2])
+
+        self.miles1GroundRay = CollisionRay()
+        self.miles1GroundRay.setOrigin(0, 0, 1000)
+        self.miles1GroundRay.setDirection(0, 0, -1)
+        self.miles1GroundCol = CollisionNode('pandaRay')
+        self.miles1GroundCol.addSolid(self.miles1GroundRay)
+        self.miles1GroundCol.setFromCollideMask(BitMask32.bit(0))
+        self.miles1GroundCol.setIntoCollideMask(BitMask32.allOff())
+        self.miles1GroundColNp = self.miles1.attachNewNode(self.miles1GroundCol)
+        self.miles1GroundHandler = CollisionHandlerQueue()
+        self.cTrav.addCollider(self.miles1GroundColNp, self.miles1GroundHandler)
+
+        # AI code for miles1
+        self.miles1AI = AICharacter("miles1", self.miles1, 100, 1, 5)
+        self.AIworld.addAiChar(self.miles1AI)
+        self.miles1AIbehaviors = self.miles1AI.getAiBehaviors()
+
+        # pursue behavior
+        self.miles1AIbehaviors.evade(self.sonic)
+
+        taskMgr.add(self.moveMiles1AI, "moveMiles1AI")
+
+        self.miles2.reparentTo(render)
+        self.miles2.setScale(0.05)
+        self.miles2.setPlayRate(3, 'run')
+        self.miles2.loop('win')
+        self.miles2.setPos(startPos[0] -5, startPos[1] - 20, startPos[2])
+
+        self.miles2GroundRay = CollisionRay()
+        self.miles2GroundRay.setOrigin(0, 0, 1000)
+        self.miles2GroundRay.setDirection(0, 0, -1)
+        self.miles2GroundCol = CollisionNode('pandaRay')
+        self.miles2GroundCol.addSolid(self.miles2GroundRay)
+        self.miles2GroundCol.setFromCollideMask(BitMask32.bit(0))
+        self.miles2GroundCol.setIntoCollideMask(BitMask32.allOff())
+        self.miles2GroundColNp = self.miles2.attachNewNode(self.miles2GroundCol)
+        self.miles2GroundHandler = CollisionHandlerQueue()
+        self.cTrav.addCollider(self.miles2GroundColNp, self.miles2GroundHandler)
+
+        self.miles2AI = AICharacter("miles2", self.miles2, 100, 1, 5)
+        self.AIworld.addAiChar(self.miles2AI)
+        self.miles2AIbehaviors = self.miles2AI.getAiBehaviors()
+
+        # puruse behavior
+        self.miles2AIbehaviors.pursue(self.sonic)
+
+        taskMgr.add(self.moveMiles2AI, "moveMiles2AI")
 
     def createTrexAI(self):
         startPos = self.env.find("**/start_point").getPos()
@@ -100,13 +169,14 @@ class Game(DirectObject):
         self.cTrav.addCollider(self.trexGroundColNp, self.trexGroundHandler)
 
         # AI code for trex
-        self.trexAI = AICharacter("trex", self.trex, 100, 0.05, 5)
+        self.trexAI = AICharacter("trex", self.trex, 100, 1, 5)
         self.AIworld.addAiChar(self.trexAI)
         self.trexAIbehaviors = self.trexAI.getAiBehaviors()
 
         # pursue behavior
-        self.trexAIbehaviors.pursue(self.sonic)
+        #self.trexAIbehaviors.pursue(self.sonic)
 
+        self.trexAIbehaviors.evade(self.sonic)
 
         taskMgr.add(self.moveTrexAI, "moveTrexAI")
 
@@ -117,6 +187,48 @@ class Game(DirectObject):
 
     def AIUpdate(self, task):
         self.AIworld.update()
+        return task.cont
+
+    def moveMiles1AI(self, task):
+        startpos = self.miles1.getPos()
+
+        entries = []
+        for i in range(self.miles1GroundHandler.getNumEntries()):
+            entry = self.miles1GroundHandler.getEntry(i)
+            entries.append(entry)
+        entries.sort(lambda x, y: cmp(y.getSurfacePoint(render).getZ(),
+                                      x.getSurfacePoint(render).getZ()))
+
+        if(len(entries) > 0) and (entries[0].getIntoNode().getName() == "terrain"):
+            miles1Z = entries[0].getSurfacePoint(render).getZ()
+            miles1Y = entries[0].getSurfacePoint(render).getY()
+            miles1X = entries[0].getSurfacePoint(render).getX()
+
+            self.miles1.setZ(entries[0].getSurfacePoint(render).getZ())
+        else:
+            self.miles1.setPos(startpos)
+
+        return task.cont
+
+    def moveMiles2AI(self, task):
+        startpos = self.miles2.getPos()
+
+        entries = []
+        for i in range(self.miles2GroundHandler.getNumEntries()):
+            entry = self.miles2GroundHandler.getEntry(i)
+            entries.append(entry)
+        entries.sort(lambda x, y: cmp(y.getSurfacePoint(render).getZ(),
+                                      x.getSurfacePoint(render).getZ()))
+
+        if(len(entries) > 0) and (entries[0].getIntoNode().getName() == "terrain"):
+            miles2Z = entries[0].getSurfacePoint(render).getZ()
+            miles2Y = entries[0].getSurfacePoint(render).getY()
+            miles2X = entries[0].getSurfacePoint(render).getX()
+
+            self.miles2.setZ(entries[0].getSurfacePoint(render).getZ())
+        else:
+            self.miles2.setPos(startpos)
+
         return task.cont
 
     def moveTrexAI(self, task):
@@ -140,8 +252,6 @@ class Game(DirectObject):
             self.trex.setPos(startpos)
 
         return task.cont
-
-
 
     def setKey(self, action, value):
         self.keyMap[action] = value
@@ -250,7 +360,7 @@ class Game(DirectObject):
 
     def checkWin(self, task):
         delta = self.sonic.getDistance(self.flag)
-        if(delta < 30):
+        if(delta < 25):
             self.winText = OnscreenText(text="You Win!", style=1, fg=(1, 1, 1, 1),
                         pos=(0,0), align=TextNode.ACenter, scale=0.4)
             self.resetBtn = DirectButton(text=("Restart", "Restart", "Restart"), scale=0.1,
@@ -273,7 +383,10 @@ class Game(DirectObject):
 
     def checkHealth(self, task):
         health_left = HEALTH
-        if(health_left == 0):
+        if(1 <= health_left <=10):
+            global SPEED
+            SPEED = 0.5
+        if(health_left <= 0):
             taskMgr.remove("moveTask")
             self.gameOverText = OnscreenText(text="Game Over!", style=1, fg=(1, 1, 1, 1),
                         pos=(0, 0), align=TextNode.ACenter, scale=0.4)
@@ -304,7 +417,7 @@ class Game(DirectObject):
 
     def showMenu(self):
         #TODO: add more controls text
-        self.gameNameText = OnscreenText(text="Save Them", style=1, fg=(1, 1, 1, 1),
+        self.gameNameText = OnscreenText(text="Save Miles", style=1, fg=(1, 1, 1, 1),
                                          pos=(0,0.5), align=TextNode.ACenter, scale=0.3)
         self.controlsText = OnscreenText(text="Controls", style=1, fg=(1, 1, 1, 1),
                                          pos=(0,0), align=TextNode.ACenter, scale=0.05)
@@ -395,6 +508,7 @@ class Game(DirectObject):
 
         # create AI characters
         self.createTrexAI()
+        self.createMilesAI()
 
         # check winning condition
         taskMgr.add(self.checkWin, "checkWin")
