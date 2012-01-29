@@ -1,7 +1,7 @@
 import direct.directbase.DirectStart
 from panda3d.ai import *
 from panda3d.core import CollisionTraverser, CollisionNode
-from panda3d.core import CollisionHandlerQueue, CollisionRay
+from panda3d.core import CollisionHandlerQueue, CollisionRay, CollisionHandlerPusher, CollisionSphere
 from panda3d.core import AmbientLight, DirectionalLight
 from panda3d.core import PandaNode, NodePath, TextNode
 from panda3d.core import Vec3, Vec4, BitMask32
@@ -13,7 +13,7 @@ import random
 import sys
 
 # global variables
-SPEED = 8               # speed of the main character (sonic)
+SPEED = 2               # speed of the main character (sonic)
 HEALTH = 100
 #TIME = 5
 #TOTAL_TIME = 5
@@ -73,6 +73,28 @@ class Game(DirectObject):
         render.setLight(render.attachNewNode(ambientLight))
         render.setLight(render.attachNewNode(directionalLight))
 
+    def createPresents(self):
+        self.speedPill = loader.loadModel("../assets/models/capsule/capsule")
+        self.speedPill.reparentTo(render)
+        self.speedPill.setScale(0.025)
+        self.speedPill.setPos(-43.9744, 32.031, 0.6)
+
+        self.speedPillb = loader.loadModel("../assets/models/capsule/capsule")
+        self.speedPillb.reparentTo(render)
+        self.speedPillb.setScale(0.025)
+        self.speedPillb.setPos(-57.7858, -61.5068, 3.80818)
+
+        self.banana = loader.loadModel("../assets/models/banana/banana")
+        self.banana.reparentTo(render)
+        self.banana.setScale(3)
+        self.banana.setPos(-72.484, -7.14435, 5.05246)
+
+        self.sphinx = loader.loadModel("../assets/models/sphinx/sphinx")
+        self.sphinx.reparentTo(render)
+        self.sphinx.setScale(0.0025)
+        self.sphinx.setPos(-48.0702, -39.4669, 0.5)
+
+
     def createMilesAI(self):
         startPos = self.env.find("**/start_point").getPos()
 
@@ -100,7 +122,7 @@ class Game(DirectObject):
         self.miles1GroundRay = CollisionRay()
         self.miles1GroundRay.setOrigin(0, 0, 1000)
         self.miles1GroundRay.setDirection(0, 0, -1)
-        self.miles1GroundCol = CollisionNode('pandaRay')
+        self.miles1GroundCol = CollisionNode('miles1Ray')
         self.miles1GroundCol.addSolid(self.miles1GroundRay)
         self.miles1GroundCol.setFromCollideMask(BitMask32.bit(0))
         self.miles1GroundCol.setIntoCollideMask(BitMask32.allOff())
@@ -109,12 +131,12 @@ class Game(DirectObject):
         self.cTrav.addCollider(self.miles1GroundColNp, self.miles1GroundHandler)
 
         # AI code for miles1
-        self.miles1AI = AICharacter("miles1", self.miles1, 100, 1, 5)
+        self.miles1AI = AICharacter("miles1", self.miles1, 100, 1, 7)
         self.AIworld.addAiChar(self.miles1AI)
         self.miles1AIbehaviors = self.miles1AI.getAiBehaviors()
 
         # pursue behavior
-        self.miles1AIbehaviors.evade(self.sonic)
+        self.miles1AIbehaviors.pursue(self.sonic)
 
         taskMgr.add(self.moveMiles1AI, "moveMiles1AI")
 
@@ -127,7 +149,7 @@ class Game(DirectObject):
         self.miles2GroundRay = CollisionRay()
         self.miles2GroundRay.setOrigin(0, 0, 1000)
         self.miles2GroundRay.setDirection(0, 0, -1)
-        self.miles2GroundCol = CollisionNode('pandaRay')
+        self.miles2GroundCol = CollisionNode('miles2Ray')
         self.miles2GroundCol.addSolid(self.miles2GroundRay)
         self.miles2GroundCol.setFromCollideMask(BitMask32.bit(0))
         self.miles2GroundCol.setIntoCollideMask(BitMask32.allOff())
@@ -135,7 +157,7 @@ class Game(DirectObject):
         self.miles2GroundHandler = CollisionHandlerQueue()
         self.cTrav.addCollider(self.miles2GroundColNp, self.miles2GroundHandler)
 
-        self.miles2AI = AICharacter("miles2", self.miles2, 100, 1, 5)
+        self.miles2AI = AICharacter("miles2", self.miles2, 100, 1, 7)
         self.AIworld.addAiChar(self.miles2AI)
         self.miles2AIbehaviors = self.miles2AI.getAiBehaviors()
 
@@ -160,7 +182,7 @@ class Game(DirectObject):
         self.trexGroundRay = CollisionRay()
         self.trexGroundRay.setOrigin(0,0,1000)
         self.trexGroundRay.setDirection(0,0,-1)
-        self.trexGroundCol = CollisionNode('pandaRay')
+        self.trexGroundCol = CollisionNode('trexRay')
         self.trexGroundCol.addSolid(self.trexGroundRay)
         self.trexGroundCol.setFromCollideMask(BitMask32.bit(0))
         self.trexGroundCol.setIntoCollideMask(BitMask32.allOff())
@@ -168,17 +190,20 @@ class Game(DirectObject):
         self.trexGroundHandler = CollisionHandlerQueue()
         self.cTrav.addCollider(self.trexGroundColNp, self.trexGroundHandler)
 
+        #self.pusher.addCollider(self.trexGroundColNp, self.sonic)
+
         # AI code for trex
-        self.trexAI = AICharacter("trex", self.trex, 100, 1, 5)
+        self.trexAI = AICharacter("trex", self.trex, 100, 1, 7)
         self.AIworld.addAiChar(self.trexAI)
         self.trexAIbehaviors = self.trexAI.getAiBehaviors()
 
         # pursue behavior
         #self.trexAIbehaviors.pursue(self.sonic)
 
-        self.trexAIbehaviors.evade(self.sonic)
+        self.trexAIbehaviors.pursue(self.sonic)
 
         taskMgr.add(self.moveTrexAI, "moveTrexAI")
+
 
     # to create the AI world
     def setAI(self):
@@ -356,6 +381,8 @@ class Game(DirectObject):
 
         self.time_text.setText("Time Remaining :: %i" % TIME)
 
+        print self.sonic.getPos()
+
         return task.cont
 
     def checkWin(self, task):
@@ -379,9 +406,10 @@ class Game(DirectObject):
             self.resetBtn = DirectButton(text=("Restart", "Restart", "Restart"), scale=0.1,
                         command=self.resetGame, pos=(0, 0, -0.7))
             return task.done
+
         return task.cont
 
-    def checkHealth(self, task):
+    def checkGameOver(self, task):
         health_left = HEALTH
         if(1 <= health_left <=10):
             global SPEED
@@ -392,6 +420,7 @@ class Game(DirectObject):
                         pos=(0, 0), align=TextNode.ACenter, scale=0.4)
             self.resetBtn = DirectButton(text=("Restart", "Restart", "Restart"), scale=0.1,
                         command=self.resetGame, pos=(0, 0, -0.7))
+            global HEALTH
             return task.done
         return task.cont
 
@@ -423,6 +452,59 @@ class Game(DirectObject):
                                          pos=(0,0), align=TextNode.ACenter, scale=0.05)
         self.startBtn = DirectButton(text=("Start", "Start", "Start"), scale=0.1,
                 command=self.startGame, pos=(0, 0, -0.7))
+
+    def checkConditions(self, task):
+        trexDelta = self.sonic.getDistance(self.trex)
+        miles1Delta = self.sonic.getDistance(self.miles1)
+        miles2Delta = self.sonic.getDistance(self.miles2)
+        if trexDelta <= 5 or miles1Delta <= 5 or miles2Delta <= 5:
+            global HEALTH
+            HEALTH = HEALTH - 1
+            if HEALTH < 0:
+                HEALTH = 0
+            self.health_text.setText("Health :: %i" % HEALTH)
+
+        return task.cont
+
+    def checkSpeed(self, task):
+        speedDelta = self.sonic.getDistance(self.speedPill)
+        if speedDelta <= 30:
+            global SPEED
+            SPEED = SPEED + 1
+            self.speedPill.removeNode()
+            return task.done
+        return task.cont
+
+    def checkSpeed2(self, task):
+        speedDelta2 = self.sonic.getDistance(self.speedPillb)
+        print speedDelta2
+        if speedDelta2 <= 3720:
+            global SPEED
+            SPEED = SPEED + 1
+            self.speedPillb.removeNode()
+            return task.done
+        return task.cont
+
+    def checkHealthBoost(self, task):
+        healthDelta = self.sonic.getDistance(self.banana)
+        if healthDelta <= 3:
+            global HEALTH
+            HEALTH = HEALTH + 10
+            if HEALTH > 100:
+                HEALTH = 100
+            self.banana.removeNode()
+            self.health_text.setText("Health :: %i" % HEALTH)
+            return task.done
+        return task.cont
+
+    def checkInvul(self, task):
+        invulDelta = self.sonic.getDistance(self.sphinx)
+        if invulDelta <= 507:
+            self.invul = True
+            self.sphinx.removeNode()
+            return task.done
+        return task.cont
+
 
     def startGame(self):
         # remove menu main elements
@@ -471,22 +553,36 @@ class Game(DirectObject):
         # varible to keep track of moving state
         self.isMoving = False
 
+        # variable to keep track of speed boost
+        self.speedBoost = False
+
+        # variable to keep track of invulnerability
+        self.invul = False
+
         # setup the camera
         base.disableMouse()
         base.camera.setPos(self.sonic.getX(), self.sonic.getY() + 10, 2)
 
         self.cTrav = CollisionTraverser()
+        #self.pusher = CollisionHandlerPusher()
 
         self.sonicGroundRay = CollisionRay()
         self.sonicGroundRay.setOrigin(0, 0, 1000)
         self.sonicGroundRay.setDirection(0, 0, -1)
         self.sonicGroundCol = CollisionNode('sonicRay')
         self.sonicGroundCol.addSolid(self.sonicGroundRay)
+        #self.sonicGroundCol.addSolid(CollisionSphere(0, 0, 1.5, 1.5))
         self.sonicGroundCol.setFromCollideMask(BitMask32.bit(0))
         self.sonicGroundCol.setIntoCollideMask(BitMask32.allOff())
         self.sonicGroundColNp = self.sonic.attachNewNode(self.sonicGroundCol)
         self.sonicGroundHandler = CollisionHandlerQueue()
+        self.sonicPusher = CollisionHandlerPusher()
+        self.sonicPusher.addInPattern('%fn-into-%in')
         self.cTrav.addCollider(self.sonicGroundColNp, self.sonicGroundHandler)
+        #self.cTrav.addCollider(self.sonicGroundColNp, self.sonicPusher)
+        #self.sonicPusher.addCollider(self.sonicGroundColNp, self.sonic)
+
+
 
         self.camGroundRay = CollisionRay()
         self.camGroundRay.setOrigin(0, 0, 1000)
@@ -510,6 +606,9 @@ class Game(DirectObject):
         self.createTrexAI()
         self.createMilesAI()
 
+        # place the presents
+        self.createPresents()
+
         # check winning condition
         taskMgr.add(self.checkWin, "checkWin")
 
@@ -517,7 +616,17 @@ class Game(DirectObject):
         taskMgr.add(self.checkTime, "checkTime")
 
         # check health conditions
-        taskMgr.add(self.checkHealth, "checkHealth")
+        taskMgr.add(self.checkGameOver, "checkGameOver")
+
+        # check other conditions
+        taskMgr.add(self.checkConditions, "checkConditions")
+
+        taskMgr.add(self.checkSpeed, "checkSpeed")
+        taskMgr.add(self.checkSpeed2, "checkSpeed2")
+        taskMgr.add(self.checkHealthBoost, "checkHealthBoost")
+        taskMgr.add(self.checkInvul, "checkInvul")
+
+
 
 
 game = Game()
