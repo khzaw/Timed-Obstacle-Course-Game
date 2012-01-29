@@ -1,5 +1,7 @@
 import direct.directbase.DirectStart
 from panda3d.ai import *
+from pandac.PandaModules import loadPrcFileData
+loadPrcFileData('', 'fullscreen 1')
 from panda3d.core import CollisionTraverser, CollisionNode
 from panda3d.core import CollisionHandlerQueue, CollisionRay, CollisionHandlerPusher, CollisionSphere
 from panda3d.core import AmbientLight, DirectionalLight
@@ -385,7 +387,6 @@ class Game(DirectObject):
 
         self.time_text.setText("Time Remaining :: %i" % TIME)
 
-        print self.sonic.getPos()
 
         return task.cont
 
@@ -464,7 +465,19 @@ class Game(DirectObject):
         self.startAudio.play()
         self.gameNameText = OnscreenText(text="Run, Baby, Run", style=1, fg=(1, 1, 1, 1),
                                          pos=(0,0.5), align=TextNode.ACenter, scale=0.3)
-        self.controlsText = OnscreenText(text="Controls", style=1, fg=(1, 1, 1, 1),
+        text = """
+        Controls
+        ===============
+        [W] - Move Forward
+        [A] - Move Left
+        [S] - Move Backwards
+        [D] - Move Right
+        [<-] - Rotate Camera (Left)
+        [->] - Rotate Camera (Right)
+
+        Camera Movements are also controlled by mouse
+        """
+        self.controlsText = OnscreenText(text=text, style=1, fg=(1, 1, 1, 1),
                                          pos=(0,0), align=TextNode.ACenter, scale=0.05)
         self.startBtn = DirectButton(text=("Start", "Start", "Start"), scale=0.1,
                 command=self.startGame, pos=(0, 0, -0.7))
@@ -493,7 +506,6 @@ class Game(DirectObject):
 
     def checkSpeed2(self, task):
         speedDelta2 = self.sonic.getDistance(self.speedPillb)
-        print speedDelta2
         if speedDelta2 <= 3720:
             global SPEED
             SPEED = SPEED + 1
