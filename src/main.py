@@ -28,9 +28,6 @@ def addTitle(text):
     return OnscreenText(text=text, style=1, fg=(1, 1, 1, 1),
                         pos=(1.3, -0.95), align=TextNode.ARight, scale=0.07)
 
-#def showMainMenu():
-
-
 class Game(DirectObject):
 
     def __init__(self):
@@ -47,46 +44,15 @@ class Game(DirectObject):
                 }
         base.win.setClearColor(Vec4(0, 0, 0, 1))
 
-
-        # the environment
-        self.env = loader.loadModel("../assets/models/world")
-        self.env.reparentTo(render)
-        self.env.setPos(0, 0, 0)
-
-        # HUD
-        self.time_text = addInstruction((-1.2, 0.9), "Time Remaining :: %s" % TIME)
-        self.health_text = addInstruction((0.9, 0.9), "Health :: %s" % HEALTH)
-
-        # the flag ( destination )
-        self.flag = loader.loadModel("../assets/models/flag/flag")
-        self.flag.reparentTo(render)
-        self.flag.setScale(0.1)
-        self.flag.setPos(0, 0, 5)
-        self.DESTINATION = self.flag.getPos()
-
-        # main character (sonic)
-        self.START = self.env.find("**/start_point").getPos()
-        self.sonic = Actor("../assets/models/sonic/sonic",
-                {"run" : "../assets/models/sonic/sonic-run",
-                 "win" : "../assets/models/sonic/sonic-win",
-                 "board" : "../assets/models/sonic/sonic-board" ,
-                 "fwboard" : "../assets/models/sonic/sonic-fallingwboard",
-                 "fwoboard" : "../assets/models/sonic/sonic-fallingwoboard" })
-        self.sonic.reparentTo(render)
-        self.sonic.setScale(0.05)
-        self.sonic.setPos(self.START)
-
-        # create a floater object to be used as a temporary
-        # variable in a variety of calculations
-        self.floater = NodePath(PandaNode("floater"))
-        self.floater.reparentTo(render)
+        # the menu
+        self.showMenu()
 
         # keyboard and mouse events
         self.accept("escape", sys.exit)
-        self.accept("w", self.setKey, ["forward" , 1])
-        self.accept("a", self.setKey, ["left" , 1])
-        self.accept("s", self.setKey, ["backward" , 1])
-        self.accept("d", self.setKey, ["right" , 1])
+        self.accept("w", self.setKey, ["forward", 1])
+        self.accept("a", self.setKey, ["left", 1])
+        self.accept("s", self.setKey, ["backward", 1])
+        self.accept("d", self.setKey, ["right", 1])
         self.accept("w-up", self.setKey, ["forward", 0])
         self.accept("a-up", self.setKey, ["left", 0])
         self.accept("s-up", self.setKey, ["backward", 0])
@@ -96,47 +62,8 @@ class Game(DirectObject):
         self.accept("arrow_right", self.setKey, ["cam-right", 1])
         self.accept("arrow_right-up", self.setKey, ["cam-right", 0])
 
-        taskMgr.add(self.move, "moveTask")
 
-        # variable to keep track of moving state
-        self.isMoving = False
 
-        # setup the camera
-        base.disableMouse()
-        base.camera.setPos(self.sonic.getX(), self.sonic.getY() + 10, 2)
-
-        self.cTrav = CollisionTraverser()
-
-        self.sonicGroundRay = CollisionRay()
-        self.sonicGroundRay.setOrigin(0, 0, 1000)
-        self.sonicGroundRay.setDirection(0, 0, -1)
-        self.sonicGroundCol = CollisionNode('sonicRay')
-        self.sonicGroundCol.addSolid(self.sonicGroundRay)
-        self.sonicGroundCol.setFromCollideMask(BitMask32.bit(0))
-        self.sonicGroundCol.setIntoCollideMask(BitMask32.allOff())
-        self.sonicGroundColNp = self.sonic.attachNewNode(self.sonicGroundCol)
-        self.sonicGroundHandler = CollisionHandlerQueue()
-        self.cTrav.addCollider(self.sonicGroundColNp, self.sonicGroundHandler)
-
-        self.camGroundRay = CollisionRay()
-        self.camGroundRay.setOrigin(0, 0, 1000)
-        self.camGroundRay.setDirection(0, 0, -1)
-        self.camGroundCol = CollisionNode('camRay')
-        self.camGroundCol.addSolid(self.camGroundRay)
-        self.camGroundCol.setFromCollideMask(BitMask32.bit(0))
-        self.camGroundCol.setIntoCollideMask(BitMask32.allOff())
-        self.camGroundColNp = base.camera.attachNewNode(self.camGroundCol)
-        self.camGroundHandler = CollisionHandlerQueue()
-        self.cTrav.addCollider(self.camGroundColNp, self.camGroundHandler)
-
-        # see the collision rays
-        self.sonicGroundColNp.show()
-        self.camGroundColNp.show()
-
-        # visual representation of the collisions occuring
-        self.cTrav.showCollisions(render)
-
-        self.createTrexAI()
 
         # create some lighting
         ambientLight = AmbientLight("ambientLight")
@@ -147,15 +74,6 @@ class Game(DirectObject):
         directionalLight.setSpecularColor(Vec4(1, 1, 1, 1))
         render.setLight(render.attachNewNode(ambientLight))
         render.setLight(render.attachNewNode(directionalLight))
-
-        # check win
-        taskMgr.add(self.checkWin, "checkWin")
-
-        # check time
-        taskMgr.add(self.checkTime, "checkTime")
-
-        # check health
-        taskMgr.add(self.checkHealth, "checkHealth")
 
     def createTrexAI(self):
         startPos = self.env.find("**/start_point").getPos()
@@ -384,9 +302,108 @@ class Game(DirectObject):
         TIME = 120
         TOTAL_TIME = 120
 
+    def showMenu(self):
+        #TODO: add more controls text
+        self.gameNameText = OnscreenText(text="Save Them", style=1, fg=(1, 1, 1, 1),
+                                         pos=(0,0.5), align=TextNode.ACenter, scale=0.3)
+        self.controlsText = OnscreenText(text="Controls", style=1, fg=(1, 1, 1, 1),
+                                         pos=(0,0), align=TextNode.ACenter, scale=0.05)
+        self.startBtn = DirectButton(text=("Start", "Start", "Start"), scale=0.1,
+                command=self.startGame, pos=(0, 0, -0.7))
 
+    def startGame(self):
+        # remove menu main elements
+        if hasattr(game, 'startBtn'):
+            self.startBtn.destroy()
+        if hasattr(game, 'gameNameText'):
+            self.gameNameText.destroy()
+        if hasattr(game, 'controlsText'):
+            self.controlsText.destroy()
 
+        # HUD information (time, health)
+        self.time_text = addInstruction((-1.2, 0.9), "Time Reamining :: %i" % TIME)
+        self.health_text = addInstruction((0.9, 0.9), "Health :: %i" % HEALTH)
 
+        # the environment
+        self.env = loader.loadModel("../assets/models/world")
+        self.env.reparentTo(render)
+        self.env.setPos(0, 0, 0)
+
+        # the flag(destination)
+        self.flag = loader.loadModel("../assets/models/flag/flag")
+        self.flag.reparentTo(render)
+        self.flag.setScale(0.1)
+        self.flag.setPos(0, 0, 5)
+        self.DESTINATION = self.flag.getPos()
+
+        # main character(sonic)
+        self.START = self.env.find("**/start_point").getPos()
+        self.sonic = Actor("../assets/models/sonic/sonic",
+                {"run"     : "../assets/models/sonic/sonic-run",
+                 "win"     : "../assets/models/sonic/sonic-win",
+                 "board"   : "../assets/models/sonic/sonic-board",
+                 "fwboard" : "../assets/models/sonic/sonic-fallingwboard",
+                 "fwoboard": "../assets/models/sonic/sonic-fallingwoboard"})
+        self.sonic.reparentTo(render)
+        self.sonic.setScale(0.05)
+        self.sonic.setPos(self.START)
+
+        # create a floater object to be used as a temporary
+        # variable in a variety of calculations
+        self.floater = NodePath(PandaNode("floater"))
+        self.floater.reparentTo(render)
+
+        taskMgr.add(self.move, "moveTask")
+
+        # varible to keep track of moving state
+        self.isMoving = False
+
+        # setup the camera
+        base.disableMouse()
+        base.camera.setPos(self.sonic.getX(), self.sonic.getY() + 10, 2)
+
+        self.cTrav = CollisionTraverser()
+
+        self.sonicGroundRay = CollisionRay()
+        self.sonicGroundRay.setOrigin(0, 0, 1000)
+        self.sonicGroundRay.setDirection(0, 0, -1)
+        self.sonicGroundCol = CollisionNode('sonicRay')
+        self.sonicGroundCol.addSolid(self.sonicGroundRay)
+        self.sonicGroundCol.setFromCollideMask(BitMask32.bit(0))
+        self.sonicGroundCol.setIntoCollideMask(BitMask32.allOff())
+        self.sonicGroundColNp = self.sonic.attachNewNode(self.sonicGroundCol)
+        self.sonicGroundHandler = CollisionHandlerQueue()
+        self.cTrav.addCollider(self.sonicGroundColNp, self.sonicGroundHandler)
+
+        self.camGroundRay = CollisionRay()
+        self.camGroundRay.setOrigin(0, 0, 1000)
+        self.camGroundRay.setDirection(0, 0, -1)
+        self.camGroundCol = CollisionNode('camRay')
+        self.camGroundCol.addSolid(self.camGroundRay)
+        self.camGroundCol.setFromCollideMask(BitMask32.bit(0))
+        self.camGroundCol.setIntoCollideMask(BitMask32.allOff())
+        self.camGroundColNp = base.camera.attachNewNode(self.camGroundCol)
+        self.camGroundHandler = CollisionHandlerQueue()
+        self.cTrav.addCollider(self.camGroundColNp, self.camGroundHandler)
+
+        # see the collision rays
+        self.sonicGroundColNp.show()
+        self.camGroundColNp.show()
+
+        # visual representation of the collisions occuring
+        self.cTrav.showCollisions(render)
+
+        # create AI characters
+        self.createTrexAI()
+
+        # check winning condition
+        taskMgr.add(self.checkWin, "checkWin")
+
+        # check time conditions
+        taskMgr.add(self.checkTime, "checkTime")
+
+        # check health conditions
+        taskMgr.add(self.checkHealth, "checkHealth")
 
 
 game = Game()
