@@ -9,14 +9,11 @@ from direct.gui.OnscreenText import OnscreenText
 from direct.actor.Actor import Actor
 from direct.showbase.DirectObject import DirectObject
 from direct.gui.DirectGui import DirectButton
-import random
 import sys
 
 # global variables
-SPEED = 2               # speed of the main character (sonic)
+SPEED = 1               # speed of the main character (sonic)
 HEALTH = 100
-#TIME = 5
-#TOTAL_TIME = 5
 TIME = 120
 TOTAL_TIME = 120
 
@@ -46,6 +43,7 @@ class Game(DirectObject):
         base.win.setClearColor(Vec4(0, 0, 0, 1))
 
         # the menu
+        self.loadAudio()
         self.showMenu()
 
         # keyboard and mouse events
@@ -72,6 +70,12 @@ class Game(DirectObject):
         directionalLight.setSpecularColor(Vec4(1, 1, 1, 1))
         render.setLight(render.attachNewNode(ambientLight))
         render.setLight(render.attachNewNode(directionalLight))
+
+    def loadAudio(self):
+        self.startAudio = base.loader.loadSfx("../assets/audio/start.mp3")
+        self.gameAudio = base.loader.loadSfx("../assets/audio/game.mp3")
+        self.winAudio = base.loader.loadSfx("../assets/audio/win.mp3")
+        self.loseAudio = base.loader.loadSfx("../assets/audio/lose.mp3")
 
     def createPresents(self):
         self.speedPill = loader.loadModel("../assets/models/capsule/capsule")
@@ -394,6 +398,9 @@ class Game(DirectObject):
                     command=self.resetGame, pos=(0, 0, -0.7))
 
             taskMgr.remove("moveTask")
+            if(self.gameAudio.status() == self.gameAudio.PLAYING):
+                self.gameAudio.stop()
+                self.winAudio.play()
             return task.done
         return task.cont
 
@@ -420,7 +427,10 @@ class Game(DirectObject):
                         pos=(0, 0), align=TextNode.ACenter, scale=0.4)
             self.resetBtn = DirectButton(text=("Restart", "Restart", "Restart"), scale=0.1,
                         command=self.resetGame, pos=(0, 0, -0.7))
-            global HEALTH
+
+            if(self.gameAudio.status() == self.gameAudio.PLAYING):
+                self.gameAudio.stop()
+                self.loseAudio.play()
             return task.done
         return task.cont
 
@@ -436,6 +446,11 @@ class Game(DirectObject):
         if hasattr(game, 'winText'):
             self.winText.destroy()
 
+        if(self.winAudio.status() == self.winAudio.PLAYING) or (self.loseAudio.status() == self.loseAudio.PLAYING):
+            self.winAudio.stop()
+            self.loseAudio.play()
+            self.gameAudio.play()
+
         # reset position
         self.sonic.setPos(self.START)
 
@@ -446,7 +461,8 @@ class Game(DirectObject):
 
     def showMenu(self):
         #TODO: add more controls text
-        self.gameNameText = OnscreenText(text="Save Miles", style=1, fg=(1, 1, 1, 1),
+        self.startAudio.play()
+        self.gameNameText = OnscreenText(text="Run, Baby, Run", style=1, fg=(1, 1, 1, 1),
                                          pos=(0,0.5), align=TextNode.ACenter, scale=0.3)
         self.controlsText = OnscreenText(text="Controls", style=1, fg=(1, 1, 1, 1),
                                          pos=(0,0), align=TextNode.ACenter, scale=0.05)
@@ -497,10 +513,12 @@ class Game(DirectObject):
             return task.done
         return task.cont
 
-    def checkInvul(self, task):
-        invulDelta = self.sonic.getDistance(self.sphinx)
-        if invulDelta <= 507:
-            self.invul = True
+    def checkTimeAdd(self, task):
+        timeAddDelta = self.sonic.getDistance(self.sphinx)
+        if timeAddDelta <= 507:
+            global TOTAL_TIME
+            TOTAL_TIME = TOTAL_TIME + 10
+            self.time_text.setText("Time Remaining :: %i" % TOTAL_TIME)
             self.sphinx.removeNode()
             return task.done
         return task.cont
@@ -514,6 +532,9 @@ class Game(DirectObject):
             self.gameNameText.destroy()
         if hasattr(game, 'controlsText'):
             self.controlsText.destroy()
+        if self.startAudio.status() == self.startAudio.PLAYING:
+            self.startAudio.stop()
+            self.gameAudio.play()
 
         # HUD information (time, health)
         self.time_text = addInstruction((-1.2, 0.9), "Time Reamining :: %i" % TIME)
@@ -624,10 +645,7 @@ class Game(DirectObject):
         taskMgr.add(self.checkSpeed, "checkSpeed")
         taskMgr.add(self.checkSpeed2, "checkSpeed2")
         taskMgr.add(self.checkHealthBoost, "checkHealthBoost")
-        taskMgr.add(self.checkInvul, "checkInvul")
-
-
-
+        taskMgr.add(self.checkTimeAdd, "checkTimeAdd")
 
 game = Game()
 run()
