@@ -16,8 +16,8 @@ import sys
 # global variables
 SPEED = 1               # speed of the main character (sonic)
 HEALTH = 100
-TIME = 120
-TOTAL_TIME = 120
+TIME = 20
+TOTAL_TIME = 20
 
 # function to put instructions on the screen
 def addInstruction(pos, msg):
@@ -449,7 +449,7 @@ class Game(DirectObject):
 
         if(self.winAudio.status() == self.winAudio.PLAYING) or (self.loseAudio.status() == self.loseAudio.PLAYING):
             self.winAudio.stop()
-            self.loseAudio.play()
+            self.loseAudio.stop()
             self.gameAudio.play()
 
         # reset position
@@ -486,7 +486,7 @@ class Game(DirectObject):
         trexDelta = self.sonic.getDistance(self.trex)
         miles1Delta = self.sonic.getDistance(self.miles1)
         miles2Delta = self.sonic.getDistance(self.miles2)
-        if trexDelta <= 5 or miles1Delta <= 5 or miles2Delta <= 5:
+        if trexDelta <= 5 or miles1Delta <= 15 or miles2Delta <= 15:
             global HEALTH
             HEALTH = HEALTH - 1
             if HEALTH < 0:
@@ -629,11 +629,11 @@ class Game(DirectObject):
         self.cTrav.addCollider(self.camGroundColNp, self.camGroundHandler)
 
         # see the collision rays
-        self.sonicGroundColNp.show()
-        self.camGroundColNp.show()
+        #self.sonicGroundColNp.show()
+        #self.camGroundColNp.show()
 
         # visual representation of the collisions occuring
-        self.cTrav.showCollisions(render)
+        #self.cTrav.showCollisions(render)
 
         # create AI characters
         self.createTrexAI()
